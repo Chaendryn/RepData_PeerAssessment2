@@ -1,0 +1,195 @@
+---
+title: "Analysis of USA Storm Data from 1950 - 2011"
+author: "Yolande Korsten"
+date: "Sunday, August 24, 2014"
+output: html_document
+---
+
+The purpose of this analysis of the NOAA storm data from 1950 - 2011 is to identify which types of events are most harmful in respect to public health over time, and also which events have the greatest economic conseqences. 
+
+## Data Processing
+
+```{r echo=TRUE, cache=TRUE, results='hide'}
+rawStorm <- read.csv(bzfile("./repdata-data-StormData.csv.bz2"))
+```
+
+The date data is stored as a factor variable.  Converting it to class Date will make analysis later easier.
+
+```{r echoe=TRUE, cache=TRUE}
+class(rawStorm$BGN_DATE)
+```
+
+```{r echoe=TRUE, cache=TRUE}
+class(rawStorm$END_DATE)
+```
+
+```{r echo=TRUE, cache=TRUE}
+## Converting Date Fields from class factor to class Date
+
+rawStorm$BGN_DATE<-as.character(rawStorm$BGN_DATE)
+rawStorm$BGN_DATE <- as.Date(rawStorm$BGN_DATE, format="%m/%d/%Y")
+rawStorm$END_DATE<-as.character(rawStorm$END_DATE)
+rawStorm$END_DATE <- as.Date(rawStorm$END_DATE, format="%m/%d/%Y")
+
+```
+
+```{r echoe=TRUE, cache=TRUE}
+class(rawStorm$BGN_DATE)
+```
+
+```{r echoe=TRUE, cache=TRUE}
+class(rawStorm$END_DATE)
+```
+
+There are 2 fields with economic data which indicate the damage caused in a non-numeric format eg. 2.5 M means 2.5 Million. These descriptive terms need to be converted into the actual numeric values e.g. 25 000 000.
+
+```{r echoe=TRUE, cache=TRUE}
+print(summary(rawStorm[,c("PROPDMG","CROPDMG")]))
+```
+
+```{r echo=TRUE, cache=TRUE}
+#convert accepts a data.frame with 2 columns
+#x[1] - this should be a value
+#x[2] = this is a indicator of K, M, B to indicate the EXP
+# Returns the actual value
+convert<-function(x) {
+  value=0;
+  if (!is.na(x[2])){
+    if (x[2]=="K") {
+      value=as.numeric(x[1])*1000
+    }
+    if (x[2]=="M") {
+      value=as.numeric(x[1])*1000000
+    }
+    if (x[2]=="B") {
+      value=as.numeric(x[1])*1000000000
+    }
+  }
+  return (value)
+} 
+
+## Converting the economic data into actual values
+
+rawStorm$PROPDMG <- apply(rawStorm[ , c("PROPDMG","PROPDMGEXP")], 1, FUN=convert)
+rawStorm$CROPDMG <- apply(rawStorm[ , c("CROPDMG","CROPDMGEXP")], 1, FUN=convert)
+
+print(summary(rawStorm[,c("PROPDMG","CROPDMG")]))
+```
+
+
+
+
+
+## Analysis
+
+The following assumptions regarding the data has been made:  
+* Public Health impact is measured by injuries (INJURIES) or fatalities (FATALITIES) during the event.  
+* Economic consequence is measured by crop damage (CROPDMG) and property damage (PROPDMG). 
+
+### Health Impact
+
+**Evaluating the most destructive events on public health by Type.**
+
+```{r echo=TRUE, cache=TRUE}
+library(plyr)
+## Calculating aggregate injuries by Event Type
+
+evInjuries <- aggregate(rawStorm$INJURIES, by = list(rawStorm$EVTYPE), FUN = sum)
+evFatal <- aggregate(rawStorm$FATALITIES, by = list(rawStorm$EVTYPE), FUN = sum)
+pHealthEV <- cbind(evInjuries, evFatal[,2])
+colnames(pHealthEV) <- c("Event", "totInjuries", "totFatal")
+pHealthEV <- mutate(pHealthEV, totOuch=apply(pHealthEV[,2:3], 1, sum))
+head(pHealthEV)
+
+```
+
+```{r echo=TRUE, cache=TRUE}
+## Reordering the information to be in descending order
+opHealthEV <- pHealthEV[order(pHealthEV$totOuch,decreasing=TRUE), ]
+spHealthEV <- opHealthEV[1:15,]
+
+spHealthEV$Event <- factor(spHealthEV$Event)
+
+head(spHealthEV)
+```
+
+
+
+
+```{r echo=FALSE, fig.width=10,  fig.height=5}
+library(ggplot2)
+# Map the time of day to different fill colors. These both have the same result.
+gpHealthEVs <- ggplot(data=spHealthEV, aes(x=Event, y=totOuch, fill=Event)) + 
+      geom_bar(stat="identity", horiz=TRUE) + 
+      coord_flip() + 
+      ggtitle("Public Health Impact by Event") + 
+      xlab("Event Type") +
+      ylab("Total injuries & fatalities")
+
+gpHealthEVs
+```
+
+
+### Economic Impact
+
+**Evaluating the most economically destructive events by TYPE**
+
+```{r echo=TRUE, cache=TRUE}
+library(plyr)
+## Calculating aggregate economic damage by Event Type
+
+evProp <- aggregate(rawStorm$PROPDMG, by = list(rawStorm$EVTYPE), FUN = sum)
+evCrop <- aggregate(rawStorm$CROPDMG, by = list(rawStorm$EVTYPE), FUN = sum)
+evHealth <- cbind(evProp, evCrop[,2])
+colnames(evHealth) <- c("Event", "totProp", "totCrop")
+evHealth <- mutate(evHealth, totEOuch=apply(evHealth[,2:3], 1, sum))
+head(evHealth)
+
+```
+
+```{r echo=TRUE, cache=TRUE}
+## Reordering the information to be in descending order
+oevHealth <- evHealth[order(evHealth$totEOuch,decreasing=TRUE), ]
+sevHealth <- oevHealth[1:15,]
+
+sevHealth$Event <- factor(sevHealth$Event)
+
+head(sevHealth)
+```
+
+
+```{r echo=FALSE, fig.width=10,  fig.height=5}
+library(ggplot2)
+
+gevHealths <- ggplot(data=sevHealth, aes(x=Event, y=totEOuch, fill=Event)) + 
+      geom_bar(stat="identity", horiz=TRUE) + 
+      coord_flip() + 
+      ggtitle("Economic Destruction by Event") + 
+      xlab("Event Type") +
+      ylab("Total Value of Damage to Crops and Property")
+
+gevHealths
+
+```
+
+## Results
+
+The results of the analysis shows that while there is a large variability in terms of the day that the most damage occurs for either economic or public health, the following Events have proven to be the most destructive.
+
+**Public Health**
+  
+1. Tornados  
+2. Excessive Heat    
+3. Floods  
+4. Thunderstorm Winds  
+5. Lightning  
+  
+**Economic**  
+
+1. Floods  
+2. Hurricanes/Typhoons  
+3. Tornados  
+4. Storm Surges  
+5. Hail 
+  
+
