@@ -5,7 +5,8 @@ Repository for the project second peer assessment for Reproducible Research modu
 
 Data
 
-Storm Data [47Mb] - The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file from the course web site:
+Storm Data [47Mb] - The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. 
+https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2
 
 There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.
 
